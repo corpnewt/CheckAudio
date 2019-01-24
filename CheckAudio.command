@@ -7,6 +7,7 @@ class CheckAudio:
         self.r = run.Run()
         self.u = utils.Utils("CheckAudio")
         self.kextstat = None
+        self.log = ""
 
     def get_hdef(self):
         # Iterate looking for our HDEF device(s)
@@ -14,7 +15,7 @@ class CheckAudio:
         ioreg = self.r.run({"args":["ioreg", "-l", "-p", "IOService", "-w0"]})[0].split("\n")
         hdef = []
         for line in ioreg:
-            if "HDEF@" in line:
+            if " HDEF@" in line:
                 hdef.append(line)
         return hdef
 
@@ -109,46 +110,51 @@ class CheckAudio:
                 return v
         return None
 
+    def lprint(self, message):
+        print(message)
+        self.log += message + "\n"
+
     def main(self):
         self.u.head()
-        print("")
-        print("Checking kexts:")
-        print("")
-        print("Locating Lilu...")
+        self.lprint("")
+        self.lprint("Checking kexts:")
+        self.lprint("")
+        self.lprint("Locating Lilu...")
         lilu_vers = self.locate("Lilu")
         if not lilu_vers:
-            print(" - Not loaded! AppleALC and WhateverGreen need this!")
+            self.lprint(" - Not loaded! AppleALC and WhateverGreen need this!")
         else:
-            print(" - Found v{}".format(lilu_vers))
-            print("Checking for Lilu plugins...")
-            print(" - Locating AppleALC...")
+            self.lprint(" - Found v{}".format(lilu_vers))
+            self.lprint("Checking for Lilu plugins...")
+            self.lprint(" - Locating AppleALC...")
             alc_vers = self.locate("AppleALC")
             if not alc_vers:
-                print(" --> Not loaded! Onboard and HDMI/DP audio may not work!")
+                self.lprint(" --> Not loaded! Onboard and HDMI/DP audio may not work!")
             else:
-                print(" --> Found v{}".format(alc_vers))
-            print(" - Locating WhateverGreen...")
+                self.lprint(" --> Found v{}".format(alc_vers))
+            self.lprint(" - Locating WhateverGreen...")
             weg_vers = self.locate("WhateverGreen")
             if not weg_vers:
-                print(" --> Not loaded! HDMI/DP audio may not work!")
+                self.lprint(" --> Not loaded! HDMI/DP audio may not work!")
             else:
-                print(" --> Found v{}".format(weg_vers))
-        print("Locating AppleHDA...")
+                self.lprint(" --> Found v{}".format(weg_vers))
+        self.lprint("Locating AppleHDA...")
         hda_vers = self.locate("AppleHDA")
         if not hda_vers:
-            print(" - Not loaded!")
+            self.lprint(" - Not loaded!")
         else:
-            print(" - Found v{}".format(hda_vers))
-        print("Locating HDEF devices...")
+            self.lprint(" - Found v{}".format(hda_vers))
+        self.lprint("")
+        self.lprint("Locating HDEF devices...")
         hdef_list = self.get_hdef()
         if not len(hdef_list):
-            print(" - None found!")
-            print("")
+            self.lprint(" - None found!")
+            self.lprint("")
         else:
-            print(" - Located {}".format(len(hdef_list)))
-            print("")
-            print("Iterating HDEF devices:")
-            print("")
+            self.lprint(" - Located {}".format(len(hdef_list)))
+            self.lprint("")
+            self.lprint("Iterating HDEF devices:")
+            self.lprint("")
             for h in hdef_list:
                 h_dict = self.get_info(h)
                 try:
@@ -156,35 +162,42 @@ class CheckAudio:
                     loc = "PciRoot(0x0)/Pci(0x{},0x{})".format(locs[0],locs[1])
                 except:
                     loc = "Unknown Location"
-                print(" - {} - {}".format(h_dict["name"], loc))
+                self.lprint(" - {} - {}".format(h_dict["name"], loc))
                 max_len = len("alc-layout-id")
                 for x in ["built-in","alc-layout-id","layout-id","hda-gfx","onboard-1"]:
                     len_adjusted = x + ":" + " "*(max_len - len(x))
-                    print(" --> {} {}".format(len_adjusted, h_dict.get("parts",{}).get(x,"Not Present")))
-                print("")
+                    self.lprint(" --> {} {}".format(len_adjusted, h_dict.get("parts",{}).get(x,"Not Present")))
+                self.lprint("")
         # Show all available outputs
-        print("Gathering inputs/outputs...")
+        self.lprint("Gathering inputs/outputs...")
         outs = self.get_inputs_outputs()
         if not len(outs):
-            print(" - None found!")
+            self.lprint(" - None found!")
+            self.lprint("")
         else:
-            print(" - Located {}".format(len(outs)))
-            print("")
-            print("Iterating Inputs and Outputs:")
-            print("")
+            self.lprint(" - Located {}".format(len(outs)))
+            self.lprint("")
+            self.lprint("Iterating Inputs and Outputs:")
+            self.lprint("")
             for out in outs:
-                print(" - {}".format(out["name"]))
+                self.lprint(" - {}".format(out["name"]))
                 if out["type"]:
-                    print(" --> Type:            {}".format(out["type"].split("_")[-1].capitalize()))
+                    self.lprint(" --> Type:            {}".format(out["type"].split("_")[-1].capitalize()))
                 if out["in_count"]:
-                    print(" --> Inputs:          {}".format(out["in_count"]))
-                    print(" ----> Input Source:  {}".format(out["in_source"]))
+                    self.lprint(" --> Inputs:          {}".format(out["in_count"]))
+                    self.lprint(" ----> Input Source:  {}".format(out["in_source"]))
                 if out["out_count"]:
-                    print(" --> Outputs:         {}".format(out["out_count"]))
-                    print(" ----> Output Source: {}".format(out["out_source"]))
-                print("")
+                    self.lprint(" --> Outputs:         {}".format(out["out_count"]))
+                    self.lprint(" ----> Output Source: {}".format(out["out_source"]))
+                self.lprint("")
+        print("Saving log...")
+        print("")
+        os.chdir(os.path.dirname(os.path.realpath(__file__)))
+        with open("Audio.log","w") as f:
+            f.write(self.log)
         print("Done.")
         print("")
+        
 
 if __name__ == '__main__':
     # os.chdir(os.path.dirname(os.path.realpath(__file__)))
