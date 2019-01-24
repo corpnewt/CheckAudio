@@ -163,8 +163,8 @@ class CheckAudio:
                 except:
                     loc = "Unknown Location"
                 self.lprint(" - {} - {}".format(h_dict["name"], loc))
-                max_len = len("alc-layout-id")
-                for x in ["built-in","alc-layout-id","layout-id","hda-gfx","onboard-1"]:
+                max_len = len("no-controller-patch")
+                for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch"]:
                     len_adjusted = x + ":" + " "*(max_len - len(x))
                     self.lprint(" --> {} {}".format(len_adjusted, h_dict.get("parts",{}).get(x,"Not Present")))
                 self.lprint("")
