@@ -150,11 +150,8 @@ class CheckAudio:
             self.lprint("")
             for x in codecs:
                 # Resolve the manufacturer name
-                # try:
                 ven = x["codec"][2:6]
                 name = self.vendors.get(ven,"Unknown")
-                #except ValueError:
-                #    name = "Unknown"
                 self.lprint(" - {} {}".format(name, x["codec"][6:]))
                 self.lprint(" --> ID:       {}".format(x["codec"]))
                 self.lprint(" --> Revision: {}".format(x["revision"]))
