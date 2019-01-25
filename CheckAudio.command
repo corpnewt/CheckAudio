@@ -8,6 +8,28 @@ class CheckAudio:
         self.u = utils.Utils("CheckAudio")
         self.kextstat = None
         self.log = ""
+        self.vendors = {
+            "8086":"Intel",
+            "10de":"Nvidia",
+            "1002":"AMD",
+            "10ec":"Realtek",
+            "111d":"IDT"
+        }
+
+    def get_codecs(self):
+        # Get our audio codec list
+        ioreg = self.r.run({"args":["ioreg","-rxn","IOHDACodecDevice"]})[0].split("\n")
+        # Iterate the list looking for devices
+        codecs = []
+        codec = None
+        for x in ioreg:
+            if "iohdacodecvendorid" in x.lower():
+                codec = x.split(" = ")[1].lower().replace("ffffffff","")
+            if codec and "iohdacodecrevisionid" in x.lower():
+                codecs.append({"codec":codec,"revision":x.split(" = ")[1].lower()})
+                # Clear the codec var
+                codec = None
+        return codecs
 
     def get_hdef(self):
         # Iterate looking for our HDEF device(s)
@@ -117,6 +139,26 @@ class CheckAudio:
     def main(self):
         self.u.head()
         self.lprint("")
+        self.lprint("Finding Codecs...")
+        codecs = self.get_codecs()
+        if not len(codecs):
+            self.lprint(" - None found!")
+        else:
+            self.lprint(" - Found {}".format(len(codecs)))
+            self.lprint("")
+            self.lprint("Iterating codecs:")
+            self.lprint("")
+            for x in codecs:
+                # Resolve the manufacturer name
+                # try:
+                ven = x["codec"][2:6]
+                name = self.vendors.get(ven,"Unknown")
+                #except ValueError:
+                #    name = "Unknown"
+                self.lprint(" - {} {}".format(name, x["codec"][6:]))
+                self.lprint(" --> ID:       {}".format(x["codec"]))
+                self.lprint(" --> Revision: {}".format(x["revision"]))
+                self.lprint("")
         self.lprint("Checking kexts:")
         self.lprint("")
         self.lprint("Locating Lilu...")
