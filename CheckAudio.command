@@ -91,9 +91,13 @@ class CheckAudio:
             xml = []
         if not len(xml):
             return []
-        if not "_items" in xml[0] or not len(xml[0]["_items"]) or not "_items" in xml[0]["_items"][0]:
+        audio_devices = []
+        if not "_items" in xml[0] or not len(xml[0]["_items"]):
             return []
-        audio_devices = xml[0]["_items"][0]["_items"]
+        for x in xml[0]["_items"]:
+            if not "_items" in x:
+                continue
+            audio_devices.extend(x["_items"])
         # Walk the list
         for x in audio_devices:
             try:
