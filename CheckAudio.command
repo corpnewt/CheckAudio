@@ -15,6 +15,7 @@ class CheckAudio:
             "10ec":"Realtek",
             "111d":"IDT"
         }
+        self.ioreg = None
 
     def get_codecs(self):
         # Get our audio codec list
@@ -31,53 +32,58 @@ class CheckAudio:
                 codec = None
         return codecs
 
-    def get_hdef(self):
-        # Iterate looking for our HDEF device(s)
+    def get_devs(self,dev_list = None, force = False):
+        # Iterate looking for our device(s)
         # returns a list of devices@addr
-        ioreg = self.r.run({"args":["ioreg", "-l", "-p", "IOService", "-w0"]})[0].split("\n")
-        hdef = []
-        for line in ioreg:
-            if " HDEF@" in line:
-                hdef.append(line)
-        return hdef
+        if dev_list == None:
+            return []
+        if not isinstance(dev_list, list):
+            dev_list = [dev_list]
+        if force or not self.ioreg:
+            self.ioreg = self.r.run({"args":["ioreg", "-l", "-p", "IOService", "-w0"]})[0].split("\n")
+        igpu = []
+        for line in self.ioreg:
+            if any(x for x in dev_list if x in line) and "+-o" in line:
+                igpu.append(line)
+        return igpu
 
-    def get_info(self, hdef):
-        # Returns a dict of the properties of the HDEF device
+    def get_info(self, igpu):
+        # Returns a dict of the properties of the device
         # as individual text items
         # First split up the text and find the device
         try:
-            hid = "HDEF@" + hdef.split("HDEF@")[1].split()[0]
+            hid = igpu.split("+-o ")[1].split("  ")[0]
         except:
-            return None
-        # Got our HDEF address - get the full info
+            return {}
+        # Got our address - get the full info
         hd = self.r.run({"args":["ioreg", "-p", "IODeviceTree", "-n", hid, "-w0"]})[0]
         if not len(hd):
-            return None
+            return {"name":hid}
         primed = False
-        hdevice = {"name":"Unknown", "parts":{}}
+        idevice = {"name":"Unknown", "parts":{}}
         for line in hd.split("\n"):
-            if not primed and not "HDEF@" in line:
+            if not primed and not hid in line:
                 continue
             if not primed:
-                # Has HDEF
+                # Has our passed device
                 try:
-                    hdevice["name"] = "HDEF@" + line.split("HDEF@")[1].split()[0]
+                    idevice["name"] = hid
                 except:
-                    hdevice["name"] = "Unknown"
+                    idevice["name"] = "Unknown"
                 primed = True
                 continue
-            # Primed, but not HDEF
+            # Primed, but not IGPU
             if "+-o" in line:
                 # Past our prime
                 primed = False
                 continue
-            # Primed, not HDEF, not next device - must be info
+            # Primed, not IGPU, not next device - must be info
             try:
                 name = line.split(" = ")[0].split('"')[1]
-                hdevice["parts"][name] = line.split(" = ")[1]
+                idevice["parts"][name] = line.split(" = ")[1]
             except Exception as e:
                 pass
-        return hdevice
+        return idevice
 
     def get_inputs_outputs(self):
         # Runs system_profiler SPAudioDataType and parses data
@@ -136,6 +142,48 @@ class CheckAudio:
                 return v
         return None
 
+    def get_parent(self, device):
+        # Attempts to locate the IOPCIDevice, or IOACPIPlatformDevice parent of the passed device
+        try:
+            dev = device.split("+-o ")[1].split("  ")[0]
+        except:
+            dev = device
+        addr = self.r.run({"args":["ioreg", "-p", "IODeviceTree", "-n", dev, "-w0"]})[0]
+        last = None
+        for line in addr.split("\n"):
+            if "+-o" in line:
+                if dev in line:
+                    return last
+                elif any(x for x in ["IOPCIDevice","IOACPIPlatformDevice"] if x in line):
+                    last = line
+        return None
+
+    def get_path(self, acpi_path):
+        # Iterates the acpi pathing and returns
+        # the device path
+        path = acpi_path.split("/")
+        if not len(path):
+            return None
+        ff = int("0xFF",16)
+        paths = []
+        for p in path:
+            if not "@" in p:
+                continue
+            try:
+                node = int(p.split("@")[1],16)
+                func = node & ff
+                dev  = (node >> 16) & ff
+            except:
+                # Failed - bail
+                return None
+            if len(paths):
+                paths.append("Pci({},{})".format(hex(dev),hex(func)))
+            else:
+                paths.append("PciRoot({})".format(hex(dev)))
+        if len(paths):
+            return "/".join(paths)
+        return None
+
     def lprint(self, message):
         print(message)
         self.log += message + "\n"
@@ -188,29 +236,39 @@ class CheckAudio:
         else:
             self.lprint(" - Found v{}".format(hda_vers))
         self.lprint("")
-        self.lprint("Locating HDEF devices...")
-        hdef_list = self.get_hdef()
-        if not len(hdef_list):
-            self.lprint(" - None found!")
-            self.lprint("")
-        else:
-            self.lprint(" - Located {}".format(len(hdef_list)))
-            self.lprint("")
-            self.lprint("Iterating HDEF devices:")
-            self.lprint("")
-            for h in hdef_list:
-                h_dict = self.get_info(h)
-                try:
-                    locs = h_dict['name'].split("@")[1].split(",")
-                    loc = "PciRoot(0x0)/Pci(0x{},0x{})".format(locs[0],locs[1])
-                except:
-                    loc = "Unknown Location"
-                self.lprint(" - {} - {}".format(h_dict["name"], loc))
-                max_len = len("no-controller-patch")
-                for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch"]:
-                    len_adjusted = x + ":" + " "*(max_len - len(x))
-                    self.lprint(" --> {} {}".format(len_adjusted, h_dict.get("parts",{}).get(x,"Not Present")))
+        for dev in ["HDEF","HDAU"]:
+            self.lprint("Locating {} devices...".format(dev))
+            hdef_list = self.get_devs(" {}@".format(dev))
+            if not len(hdef_list):
+                self.lprint(" - None found!")
                 self.lprint("")
+            else:
+                self.lprint(" - Located {}".format(len(hdef_list)))
+                self.lprint("")
+                self.lprint("Iterating {} devices:".format(dev))
+                self.lprint("")
+                for h in hdef_list:
+                    h_dict = self.get_info(h)
+                    #try:
+                    if not "acpi-path" in h_dict['parts']:
+                        parent = self.get_parent(h_dict["name"])
+                        p_dict = self.get_info(parent)
+                        loc    = self.get_path(p_dict['parts']['acpi-path'].replace('"',""))
+                        # Cannibalize the path - and add our values
+                        paths = loc.split("/")[0:-1]
+                        f,d = h_dict['name'].split("@")[1].split(",")
+                        paths.append("Pci(0x{},0x{})".format(f,d))
+                        loc = "/".join(paths)
+                    else:
+                        loc = self.get_path(h_dict['parts']['acpi-path'].replace('"',""))
+                    #except:
+                    #    loc = "Unknown Location"
+                    self.lprint(" - {} - {}".format(h_dict["name"], loc))
+                    max_len = len("no-controller-patch")
+                    for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch"]:
+                        len_adjusted = x + ":" + " "*(max_len - len(x))
+                        self.lprint(" --> {} {}".format(len_adjusted, h_dict.get("parts",{}).get(x,"Not Present")))
+                    self.lprint("")
         # Show all available outputs
         self.lprint("Gathering inputs/outputs...")
         outs = self.get_inputs_outputs()
