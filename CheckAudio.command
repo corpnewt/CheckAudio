@@ -6,6 +6,7 @@ class CheckAudio:
     def __init__(self):
         self.r = run.Run()
         self.u = utils.Utils("CheckAudio")
+        self.i = ioreg.IOReg()
         self.kextstat = None
         self.log = ""
         self.vendors = {
@@ -31,59 +32,6 @@ class CheckAudio:
                 # Clear the codec var
                 codec = None
         return codecs
-
-    def get_devs(self,dev_list = None, force = False):
-        # Iterate looking for our device(s)
-        # returns a list of devices@addr
-        if dev_list == None:
-            return []
-        if not isinstance(dev_list, list):
-            dev_list = [dev_list]
-        if force or not self.ioreg:
-            self.ioreg = self.r.run({"args":["ioreg", "-l", "-p", "IOService", "-w0"]})[0].split("\n")
-        igpu = []
-        for line in self.ioreg:
-            if any(x for x in dev_list if x in line) and "+-o" in line:
-                igpu.append(line)
-        return igpu
-
-    def get_info(self, igpu):
-        # Returns a dict of the properties of the device
-        # as individual text items
-        # First split up the text and find the device
-        try:
-            hid = igpu.split("+-o ")[1].split("  ")[0]
-        except:
-            return {}
-        # Got our address - get the full info
-        hd = self.r.run({"args":["ioreg", "-p", "IODeviceTree", "-n", hid, "-w0"]})[0]
-        if not len(hd):
-            return {"name":hid}
-        primed = False
-        idevice = {"name":"Unknown", "parts":{}}
-        for line in hd.split("\n"):
-            if not primed and not hid in line:
-                continue
-            if not primed:
-                # Has our passed device
-                try:
-                    idevice["name"] = hid
-                except:
-                    idevice["name"] = "Unknown"
-                primed = True
-                continue
-            # Primed, but not IGPU
-            if "+-o" in line:
-                # Past our prime
-                primed = False
-                continue
-            # Primed, not IGPU, not next device - must be info
-            try:
-                name = line.split(" = ")[0].split('"')[1]
-                idevice["parts"][name] = line.split(" = ")[1]
-            except Exception as e:
-                pass
-        return idevice
 
     def get_inputs_outputs(self):
         # Runs system_profiler SPAudioDataType and parses data
@@ -142,48 +90,6 @@ class CheckAudio:
                 return v
         return None
 
-    def get_parent(self, device):
-        # Attempts to locate the IOPCIDevice, or IOACPIPlatformDevice parent of the passed device
-        try:
-            dev = device.split("+-o ")[1].split("  ")[0]
-        except:
-            dev = device
-        addr = self.r.run({"args":["ioreg", "-p", "IODeviceTree", "-n", dev, "-w0"]})[0]
-        last = None
-        for line in addr.split("\n"):
-            if "+-o" in line:
-                if dev in line:
-                    return last
-                elif any(x for x in ["IOPCIDevice","IOACPIPlatformDevice"] if x in line):
-                    last = line
-        return None
-
-    def get_path(self, acpi_path):
-        # Iterates the acpi pathing and returns
-        # the device path
-        path = acpi_path.split("/")
-        if not len(path):
-            return None
-        ff = int("0xFF",16)
-        paths = []
-        for p in path:
-            if not "@" in p:
-                continue
-            try:
-                node = int(p.split("@")[1],16)
-                func = node & ff
-                dev  = (node >> 16) & ff
-            except:
-                # Failed - bail
-                return None
-            if len(paths):
-                paths.append("Pci({},{})".format(hex(dev),hex(func)))
-            else:
-                paths.append("PciRoot({})".format(hex(dev)))
-        if len(paths):
-            return "/".join(paths)
-        return None
-
     def lprint(self, message):
         print(message)
         self.log += message + "\n"
@@ -238,7 +144,7 @@ class CheckAudio:
         self.lprint("")
         for dev in ["HDEF","HDAU"]:
             self.lprint("Locating {} devices...".format(dev))
-            hdef_list = self.get_devs(" {}@".format(dev))
+            hdef_list = self.i.get_devices(" {}@".format(dev))
             if not len(hdef_list):
                 self.lprint(" - None found!")
                 self.lprint("")
@@ -248,21 +154,8 @@ class CheckAudio:
                 self.lprint("Iterating {} devices:".format(dev))
                 self.lprint("")
                 for h in hdef_list:
-                    h_dict = self.get_info(h)
-                    #try:
-                    if not "acpi-path" in h_dict['parts']:
-                        parent = self.get_parent(h_dict["name"])
-                        p_dict = self.get_info(parent)
-                        loc    = self.get_path(p_dict['parts']['acpi-path'].replace('"',""))
-                        # Cannibalize the path - and add our values
-                        paths = loc.split("/")[0:-1]
-                        f,d = h_dict['name'].split("@")[1].split(",")
-                        paths.append("Pci(0x{},0x{})".format(f,d))
-                        loc = "/".join(paths)
-                    else:
-                        loc = self.get_path(h_dict['parts']['acpi-path'].replace('"',""))
-                    #except:
-                    #    loc = "Unknown Location"
+                    h_dict = self.i.get_device_info(h)[0] # Get the first occurrence
+                    loc = self.i.get_device_path(h)
                     self.lprint(" - {} - {}".format(h_dict["name"], loc))
                     max_len = len("no-controller-patch")
                     for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch"]:
