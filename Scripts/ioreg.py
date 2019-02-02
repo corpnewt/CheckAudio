@@ -25,7 +25,7 @@ class IOReg:
     def get_device_info(self, dev_search = None, **kwargs):
         force = kwargs.get("force",False)
         plane = kwargs.get("plane","IOService")
-        isclass = kwargs.get("class",False)
+        isclass = kwargs.get("isclass",False)
         # Returns a list of all matched classes and their properties
         if not dev_search:
             return []
