@@ -1,4 +1,6 @@
-import os, run
+import os, sys
+sys.path.append(os.path.abspath(os.path.dirname(os.path.realpath(__file__))))
+import run
 
 class IOReg:
     def __init__(self):
@@ -19,6 +21,8 @@ class IOReg:
         # Attemps to reformat an item from NAME@X000000Y to NAME@X,Y
         try:
             name,addr = item.split("@")
+            if len(addr)<5:
+                return "{}@{},0".format(name,addr)
             port = int(addr,16) & 0xFFFF
             cont = int(addr,16) >> 20 & 0xFFFF
             item = name+"@"+hex(cont).replace("0x","")
