@@ -143,6 +143,12 @@ class CheckAudio:
                 self.lprint(" --> Not loaded! HDMI/DP audio may not work!")
             else:
                 self.lprint(" --> Found v{}".format(weg_vers))
+        self.lprint("Locating AppleHDAController...")
+        hda_c_vers = self.locate("AppleHDAController")
+        if not hda_c_vers:
+            self.lprint(" - Not loaded!")
+        else:
+            self.lprint(" - Found v{}".format(hda_c_vers))
         self.lprint("Locating AppleHDA...")
         hda_vers = self.locate("AppleHDA")
         if not hda_vers:
