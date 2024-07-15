@@ -189,7 +189,7 @@ class IOReg:
                 if _uid is None:
                     # Broken path
                     return ""
-                dev_path = "PciRoot(0x{})".format(x.split("@")[1])
+                dev_path = "PciRoot(0x{})".format(hex(_uid)[2:].upper())
             else:
                 # Not first
                 x = self._get_dec_addr(x)
