@@ -10,11 +10,18 @@ class CheckAudio:
         self.kextstat = None
         self.log = ""
         self.vendors = {
+            "1002":"AMD",
+            "1022":"AMD Zen",
+            "11d4":"AnalogDevices",
+            "1013":"CirrusLogic",
+            "14f1":"Conexant",
+            "1102":"Creative",
+            "111d":"IDT",
             "8086":"Intel",
             "10de":"Nvidia",
-            "1002":"AMD",
             "10ec":"Realtek",
-            "111d":"IDT"
+            "8384":"SigmaTel",
+            "1106":"VIA"
         }
         self.ioreg = None
 
@@ -82,6 +89,14 @@ class CheckAudio:
                 return "\t".join(l.split("\t")[1:])
         return None
 
+    def get_os_version(self):
+        # Scrape sw_vers
+        prod_name  = self.r.run({"args":["sw_vers","-productName"]})[0].strip()
+        prod_vers  = self.r.run({"args":["sw_vers","-productVersion"]})[0].strip()
+        build_vers = self.r.run({"args":["sw_vers","-buildVersion"]})[0].strip()
+        if build_vers: build_vers = "({})".format(build_vers)
+        return " ".join([x for x in (prod_name,prod_vers,build_vers) if x])
+
     def locate(self, kext):
         # Gathers the kextstat list - then parses for loaded kexts
         ks = self.get_kextstat()
@@ -117,7 +132,7 @@ class CheckAudio:
             for x in codecs:
                 # Resolve the manufacturer name
                 ven = x["codec"][2:6]
-                name = self.vendors.get(ven,"Unknown")
+                name = self.vendors.get(ven.lower(),"Unknown")
                 self.lprint(" - {} {}".format(name, x["codec"][6:]))
                 self.lprint(" --> ID:       {}".format(x["codec"]))
                 self.lprint(" --> Revision: {}".format(x["revision"]))
@@ -156,6 +171,9 @@ class CheckAudio:
         else:
             self.lprint(" - Found v{}".format(hda_vers))
         self.lprint("")
+        os_vers = self.get_os_version()
+        self.lprint("Current OS Version: {}".format(os_vers or "Unknown!"))
+        self.lprint("")
         boot_args = self.get_boot_args()
         self.lprint("Current boot-args: {}".format(boot_args or "None set!"))
         self.lprint("")
@@ -173,7 +191,7 @@ class CheckAudio:
                 for h in hdef_list:
                     h_dict = self.i.get_device_info(h)[0] # Get the first occurrence
                     loc = self.i.get_device_path(h)
-                    self.lprint(" - {} - {}".format(h_dict["name"], loc))
+                    self.lprint(" - {} - {}".format(h_dict["name"], loc or "Could Not Resolve Device Path"))
                     max_len = len("no-controller-patch")
                     for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch"]:
                         len_adjusted = x + ":" + " "*(max_len - len(x))
