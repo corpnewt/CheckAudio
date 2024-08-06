@@ -10,7 +10,10 @@ class IOReg:
         # Attempts to reformat an item from NAME@X,Y to NAME@X000000Y
         try:
             name,addr = item.split("@")
-            cont,port = addr.split(",")
+            if "," in addr:
+                cont,port = addr.split(",")
+            else:
+                cont,port = addr,"0"
             item = name+"@"+hex(int(port,16)+(int(cont,16)<<20)).replace("0x","")
         except:
             pass
@@ -21,7 +24,7 @@ class IOReg:
         try:
             name,addr = item.split("@")
             if len(addr)<5:
-                return "{}@{},0".format(name,addr)
+                return "{}@0,{}".format(name,addr)
             port = int(addr,16) & 0xFFFF
             cont = int(addr,16) >> 20 & 0xFFFF
             item = name+"@"+hex(cont).replace("0x","")
