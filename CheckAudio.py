@@ -4,8 +4,16 @@ from Scripts import *
 
 class CheckAudio:
     def __init__(self):
-        self.r = run.Run()
         self.u = utils.Utils("CheckAudio")
+        # Verify running OS
+        if not sys.platform.lower() == "darwin":
+            self.u.head("Wrong OS!")
+            print("")
+            print("This script can only be run on macOS!")
+            print("")
+            self.u.grab("Press [enter] to exit...")
+            exit(1)
+        self.r = run.Run()
         self.i = ioreg.IOReg()
         self.kextstat = None
         self.log = ""
