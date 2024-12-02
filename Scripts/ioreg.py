@@ -43,15 +43,17 @@ class IOReg:
         return item
 
     def _get_pcix_uid(self,item,**kwargs):
-        # Helper to walk the IOACPIPlane looking for the passed item's _UID
+        # Helper to look for the passed item's _UID
         # Expects a XXXX@Y style string
-        if kwargs.get("force") or not self.ioreg.get("IOACPIPlane"):
-            self.ioreg["IOACPIPlane"] = self.r.run({"args":["ioreg","-lw0","-p","IOACPIPlane"]})[0].split("\n")
+        force = kwargs.get("force",False)
+        plane = kwargs.get("plane","IOService")
+        if force or not self.ioreg.get(plane,None):
+            self.ioreg[plane] = self.r.run({"args":["ioreg", "-lw0", "-p", plane]})[0].split("\n")
         # Ensure our item ends with 2 spaces
         item = item.rstrip()+"  "
         item_uid = None
         found_device = False
-        for line in self.ioreg["IOACPIPlane"]:
+        for line in self.ioreg[plane]:
             if item in line:
                 found_device = True
                 continue
