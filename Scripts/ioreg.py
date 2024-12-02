@@ -12,9 +12,13 @@ class IOReg:
             name,addr = item.split("@")
             if "," in addr:
                 cont,port = addr.split(",")
+            elif len(addr) > 4:
+                # Using XXXXYYYY formatting already
+                return name+"@"+addr
             else:
+                # No comma, and 4 or fewer digits
                 cont,port = addr,"0"
-            item = name+"@"+hex(int(port,16)+(int(cont,16)<<20)).replace("0x","")
+            item = name+"@"+hex(int(port,16)+(int(cont,16)<<16))[2:].upper()
         except:
             pass
         return item
@@ -23,13 +27,17 @@ class IOReg:
         # Attemps to reformat an item from NAME@X000000Y to NAME@X,Y
         try:
             name,addr = item.split("@")
+            if addr.count(",")==1:
+                # Using NAME@X,Y formating already
+                return name+"@"+addr
             if len(addr)<5:
                 return "{}@0,{}".format(name,addr)
-            port = int(addr,16) & 0xFFFF
-            cont = int(addr,16) >> 20 & 0xFFFF
-            item = name+"@"+hex(cont).replace("0x","")
+            hexaddr = int(addr,16)
+            port = hexaddr & 0xFFFF
+            cont = (hexaddr >> 16) & 0xFFFF
+            item = name+"@"+hex(cont)[2:].upper()
             if port:
-                item += ","+hex(port).replace("0x","")
+                item += ","+hex(port)[2:].upper()
         except:
             pass
         return item
