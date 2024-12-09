@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os, sys
-from Scripts import *
+from Scripts import ioreg, plist, run, utils
 
 class CheckAudio:
     def __init__(self):
@@ -203,7 +203,16 @@ class CheckAudio:
                     max_len = len("no-controller-patch")
                     for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch","acpi-path"]:
                         len_adjusted = x + ":" + " "*(max_len - len(x))
-                        self.lprint(" --> {} {}".format(len_adjusted, h_dict.get("parts",{}).get(x,"Not Present")))
+                        val = h_dict.get("parts",{}).get(x,"Not Present")
+                        if val[0]=="<" and val[-1]==">" and val[1]!='"' and val[-1]!='"':
+                            # Got some likely little endian hex data - try to get a number
+                            try:
+                                val_hex = list("0"*(len(val[1:-1])%2)+val[1:-1])
+                                val_rev = "".join(["".join(val_hex[i:i+2]) for i in range(0,len(val_hex),2)][::-1])
+                                val = "{} ({})".format(val,int(val_rev,16))
+                            except Exception:
+                                pass
+                        self.lprint(" --> {} {}".format(len_adjusted, val))
                     self.lprint("")
         # Show all available outputs
         self.lprint("Gathering inputs/outputs...")
