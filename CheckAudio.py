@@ -201,7 +201,7 @@ class CheckAudio:
                     loc = self.i.get_device_path(h)
                     self.lprint(" - {} - {}".format(h_dict["name"], loc or "Could Not Resolve Device Path"))
                     max_len = len("no-controller-patch")
-                    for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch"]:
+                    for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch","acpi-path"]:
                         len_adjusted = x + ":" + " "*(max_len - len(x))
                         self.lprint(" --> {} {}".format(len_adjusted, h_dict.get("parts",{}).get(x,"Not Present")))
                     self.lprint("")
