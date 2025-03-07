@@ -47,6 +47,8 @@ class IOReg:
         # Expects a XXXX@Y style string
         force = kwargs.get("force",False)
         plane = kwargs.get("plane","IOService")
+        allow_fallback = kwargs.get("allow_fallback",True)
+        fallback_uid = kwargs.get("fallback_uid",0)
         if force or not self.ioreg.get(plane,None):
             self.ioreg[plane] = self.r.run({"args":["ioreg", "-lw0", "-p", plane]})[0].split("\n")
         # Ensure our item ends with 2 spaces
@@ -71,6 +73,8 @@ class IOReg:
                     # Some _UIDs are strings - but we won't accept that here
                     # as we're ripping it specifically for PciRoot/Pci pathing
                     break
+        if item_uid is None and allow_fallback:
+            return fallback_uid
         return item_uid
 
     def get_ioreg(self,**kwargs):
