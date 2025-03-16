@@ -34,10 +34,12 @@ class CheckAudio:
         self.ioreg = None
 
     def get_codecs(self):
+        # Get our audio codec list
+        ioreg = self.r.run({"args":["ioreg","-d1","-rn","IOHDACodecDevice"]})[0].split("\n")
         # Iterate the list looking for devices
         codecs = []
         codec = None
-        for x in self.i.get_ioreg():
+        for x in ioreg:
             if "iohdacodecvendorid" in x.lower():
                 try:
                     codec = hex(int(x.split(" = ")[1]) & 0xFFFFFFFF).lower()
