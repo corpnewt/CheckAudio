@@ -34,18 +34,25 @@ class CheckAudio:
         self.ioreg = None
 
     def get_codecs(self):
-        # Get our audio codec list
-        ioreg = self.r.run({"args":["ioreg","-rxn","IOHDACodecDevice"]})[0].split("\n")
         # Iterate the list looking for devices
         codecs = []
         codec = None
-        for x in ioreg:
+        for x in self.i.get_ioreg():
             if "iohdacodecvendorid" in x.lower():
-                codec = x.split(" = ")[1].lower().replace("ffffffff","")
+                try:
+                    codec = hex(int(x.split(" = ")[1])).lower().replace("ffffffff","")
+                except:
+                    # Reset on failure
+                    codec = None
             if codec and "iohdacodecrevisionid" in x.lower():
-                codecs.append({"codec":codec,"revision":x.split(" = ")[1].lower()})
-                # Clear the codec var
-                codec = None
+                try:
+                    codecs.append({
+                        "codec":codec,
+                        "revision":hex(int(x.split(" = ")[1])).lower()
+                    })
+                finally:
+                    # Clear the codec var
+                    codec = None
         return codecs
 
     def get_inputs_outputs(self):
@@ -185,9 +192,10 @@ class CheckAudio:
         boot_args = self.get_boot_args()
         self.lprint("Current boot-args: {}".format(boot_args or "None set!"))
         self.lprint("")
+        all_devs = self.i.get_all_devices()
         for dev in ["HDEF","HDAU"]:
             self.lprint("Locating {} devices...".format(dev))
-            hdef_list = self.i.get_devices(" {}@".format(dev))
+            hdef_list = [x for x in all_devs.values() if x.get("name_no_addr") == dev]
             if not len(hdef_list):
                 self.lprint(" - None found!")
                 self.lprint("")
@@ -197,13 +205,13 @@ class CheckAudio:
                 self.lprint("Iterating {} devices:".format(dev))
                 self.lprint("")
                 for h in hdef_list:
-                    h_dict = self.i.get_device_info(h)[0] # Get the first occurrence
-                    loc = self.i.get_device_path(h)
-                    self.lprint(" - {} - {}".format(h_dict["name"], loc or "Could Not Resolve Device Path"))
+                    h_dict = h.get("info",{})
+                    loc = h.get("device_path")
+                    self.lprint(" - {} - {}".format(h["name"], loc or "Could Not Resolve Device Path"))
                     max_len = len("no-controller-patch")
                     for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch","acpi-path"]:
                         len_adjusted = x + ":" + " "*(max_len - len(x))
-                        val = h_dict.get("parts",{}).get(x,"Not Present")
+                        val = h_dict.get(x,"Not Present")
                         if val[0]=="<" and val[-1]==">" and val[1]!='"' and val[-1]!='"':
                             # Got some likely little endian hex data - try to get a number
                             try:
