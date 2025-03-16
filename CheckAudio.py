@@ -40,7 +40,7 @@ class CheckAudio:
         for x in self.i.get_ioreg():
             if "iohdacodecvendorid" in x.lower():
                 try:
-                    codec = hex(int(x.split(" = ")[1])).lower().replace("ffffffff","")
+                    codec = hex(int(x.split(" = ")[1]) & 0xFFFFFFFF).lower()
                 except:
                     # Reset on failure
                     codec = None
