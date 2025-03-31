@@ -210,9 +210,11 @@ class CheckAudio:
                     h_dict = h.get("info",{})
                     loc = h.get("device_path")
                     self.lprint(" - {} - {}".format(h["name"], loc or "Could Not Resolve Device Path"))
-                    max_len = len("no-controller-patch")
+                    max_len = len("no-controller-patch:")
+                    name = self.i.get_pci_device_name(h_dict,use_unknown=False)
+                    if name:
+                        self.lprint(" --> {} {}".format("name:".ljust(max_len),name))
                     for x in ["built-in","alc-layout-id","layout-id","hda-gfx","no-controller-patch","acpi-path"]:
-                        len_adjusted = x + ":" + " "*(max_len - len(x))
                         val = h_dict.get(x,"Not Present")
                         if val[0]=="<" and val[-1]==">" and val[1]!='"' and val[-1]!='"':
                             # Got some likely little endian hex data - try to get a number
@@ -222,7 +224,7 @@ class CheckAudio:
                                 val = "{} ({})".format(val,int(val_rev,16))
                             except Exception:
                                 pass
-                        self.lprint(" --> {} {}".format(len_adjusted, val))
+                        self.lprint(" --> {} {}".format((x+":").ljust(max_len), val))
                     self.lprint("")
         # Show all available outputs
         self.lprint("Gathering inputs/outputs...")
