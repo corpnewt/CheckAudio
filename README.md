@@ -5,7 +5,7 @@ Small py script to offer some debugging info on HDEF and current outputs.
 
 ## To install:
 
-Do the following one line at a time in Terminal:
+Download the zip [here](https://github.com/corpnewt/CheckAudio/archive/refs/heads/master.zip) - or do the following one line at a time in Terminal:
 
     git clone https://github.com/corpnewt/CheckAudio
     cd CheckAudio
