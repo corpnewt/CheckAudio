@@ -190,9 +190,9 @@ class IOReg:
                     .replace("\r","").split("\n")
             except:
                 pass
-            # Check again
-            if not pci_ids:
-                return self.pci_ids
+        # Check again
+        if not pci_ids:
+            return self.pci_ids
         def get_id_name_from_line(line):
             # Helper to rip the id(s) out of the passed
             # line and convert to an int
